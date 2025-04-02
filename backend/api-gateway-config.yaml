@@ -1,0 +1,107 @@
+swagger: '2.0'
+info:
+  title: Dottie AI Assistant API
+  description: API Gateway for Dottie AI Assistant
+  version: 1.0.0
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /api/auth/status:
+    get:
+      operationId: getAuthStatus
+      x-google-backend:
+        address: ${BACKEND_URL}/api/auth/status
+      security:
+        - firebase: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+  
+  /api/auth/google:
+    get:
+      operationId: getGoogleAuth
+      x-google-backend:
+        address: ${BACKEND_URL}/api/auth/google
+      security:
+        - firebase: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+  
+  /api/auth/google/callback:
+    get:
+      operationId: getGoogleAuthCallback
+      x-google-backend:
+        address: ${BACKEND_URL}/api/auth/google/callback
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+  
+  /api/chat:
+    post:
+      operationId: postChat
+      x-google-backend:
+        address: ${BACKEND_URL}/api/chat
+      security:
+        - firebase: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+  
+  /api/gmail/messages:
+    get:
+      operationId: getGmailMessages
+      x-google-backend:
+        address: ${BACKEND_URL}/api/gmail/messages
+      security:
+        - firebase: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+  
+  /api/calendar/events:
+    get:
+      operationId: getCalendarEvents
+      x-google-backend:
+        address: ${BACKEND_URL}/api/calendar/events
+      security:
+        - firebase: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+  
+  /api/sheets/data:
+    get:
+      operationId: getSheetsData
+      x-google-backend:
+        address: ${BACKEND_URL}/api/sheets/data
+      security:
+        - firebase: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+
+securityDefinitions:
+  firebase:
+    authorizationUrl: ""
+    flow: "implicit"
+    type: "oauth2"
+    x-google-issuer: "https://securetoken.google.com/${PROJECT_ID}"
+    x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    x-google-audiences: "${PROJECT_ID}"
