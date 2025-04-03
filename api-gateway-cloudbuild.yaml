@@ -1,0 +1,88 @@
+steps:
+  # Get the URL of the deployed Cloud Run service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: /bin/bash
+    id: 'get-backend-url'
+    args:
+      - '-c'
+      - |
+        BACKEND_URL=${_BACKEND_URL}
+        PROJECT_ID=${_PROJECT_ID}
+        echo "Backend URL: $BACKEND_URL"
+        echo "Project ID: $PROJECT_ID"
+        
+  # Process API Gateway configuration with the backend URL
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: /bin/bash
+    id: 'process-api-config'
+    waitFor: ['get-backend-url']
+    args:
+      - '-c'
+      - |
+        BACKEND_URL=${_BACKEND_URL}
+        PROJECT_ID=${_PROJECT_ID}
+        
+        # Create a processed version of the API Gateway configuration
+        cp api-gateway.yaml processed-api-gateway.yaml
+        sed -i "s|\${BACKEND_URL}|$BACKEND_URL|g" processed-api-gateway.yaml
+        sed -i "s|\${PROJECT_ID}|$PROJECT_ID|g" processed-api-gateway.yaml
+        
+        echo "API Gateway configuration processed with Backend URL: $BACKEND_URL and Project ID: $PROJECT_ID"
+  
+  # Deploy API Gateway
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: /bin/bash
+    id: 'deploy-api-gateway'
+    waitFor: ['process-api-config']
+    args:
+      - '-c'
+      - |
+        PROJECT_ID=${_PROJECT_ID}
+        
+        # Check if API already exists
+        if gcloud api-gateway apis describe dottie-api --project=$PROJECT_ID 2>/dev/null; then
+          echo "API already exists, skipping creation"
+        else
+          echo "Creating API Gateway API"
+          gcloud api-gateway apis create dottie-api --project=$PROJECT_ID
+        fi
+        
+        # Create a new API config with timestamp to ensure uniqueness
+        CONFIG_ID="dottie-api-config-$(date +%Y%m%d%H%M%S)"
+        echo "Creating API Gateway config: $CONFIG_ID"
+        
+        gcloud api-gateway api-configs create $CONFIG_ID \
+          --api=dottie-api \
+          --openapi-spec=processed-api-gateway.yaml \
+          --project=$PROJECT_ID
+        
+        # Check if gateway already exists
+        if gcloud api-gateway gateways describe dottie-gateway --location=global --project=$PROJECT_ID 2>/dev/null; then
+          echo "Updating API Gateway"
+          gcloud api-gateway gateways update dottie-gateway \
+            --api=dottie-api \
+            --api-config=$CONFIG_ID \
+            --location=global \
+            --project=$PROJECT_ID
+        else
+          echo "Creating API Gateway"
+          gcloud api-gateway gateways create dottie-gateway \
+            --api=dottie-api \
+            --api-config=$CONFIG_ID \
+            --location=global \
+            --project=$PROJECT_ID
+        fi
+        
+        # Get and display the gateway URL
+        GATEWAY_URL=$(gcloud api-gateway gateways describe dottie-gateway \
+          --location=global \
+          --project=$PROJECT_ID \
+          --format="value(defaultHostname)")
+        
+        echo "API Gateway URL: https://$GATEWAY_URL"
+
+timeout: 1800s
+
+substitutions:
+  _BACKEND_URL: "https://dottie-backend-url.a.run.app"
+  _PROJECT_ID: "dottie-project-id"

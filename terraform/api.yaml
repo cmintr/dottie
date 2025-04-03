@@ -1,0 +1,286 @@
+swagger: '2.0'
+info:
+  title: Dottie AI Assistant API
+  description: API Gateway for Dottie AI Assistant
+  version: 1.0.0
+host: dottie-api-gw-${PROJECT_ID}.a.run.app
+schemes:
+  - https
+produces:
+  - application/json
+consumes:
+  - application/json
+paths:
+  /auth/status:
+    get:
+      operationId: getAuthStatus
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/auth/status
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+  
+  /api/auth/google:
+    get:
+      operationId: getGoogleAuth
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/auth/google
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+  
+  /api/auth/google/callback:
+    get:
+      operationId: getGoogleAuthCallback
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/auth/google/callback
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+  
+  /api/chat:
+    post:
+      operationId: postChat
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/chat
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+  
+  /api/gmail/messages:
+    get:
+      operationId: getGmailMessages
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/gmail/messages
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+    post:
+      operationId: sendGmailMessage
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/gmail/messages
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+          
+  /api/gmail/messages/{messageId}:
+    get:
+      operationId: getGmailMessage
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/gmail/messages/{messageId}
+      security:
+        - firebase_jwt: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+  
+  /api/calendar/events:
+    get:
+      operationId: getCalendarEvents
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/calendar/events
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+    post:
+      operationId: createCalendarEvent
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/calendar/events
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+          
+  /api/calendar/events/{eventId}:
+    get:
+      operationId: getCalendarEvent
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/calendar/events/{eventId}
+      security:
+        - firebase_jwt: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+    put:
+      operationId: updateCalendarEvent
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/calendar/events/{eventId}
+      security:
+        - firebase_jwt: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+    delete:
+      operationId: deleteCalendarEvent
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/calendar/events/{eventId}
+      security:
+        - firebase_jwt: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          type: string
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+  
+  /api/sheets/data:
+    get:
+      operationId: getSheetsData
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/sheets/data
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+    post:
+      operationId: updateSheetsData
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/sheets/data
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+          
+  /api/sheets/create:
+    post:
+      operationId: createSpreadsheet
+      x-google-backend:
+        address: https://dottie-backend-${PROJECT_ID}.a.run.app/api/sheets/create
+      security:
+        - firebase_jwt: []
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+securityDefinitions:
+  firebase_jwt:
+    authorizationUrl: ""
+    flow: "implicit"
+    type: "oauth2"
+    x-google-issuer: "https://securetoken.google.com/${PROJECT_ID}"
+    x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    x-google-audiences: "${PROJECT_ID}"
+    x-google-auth-ttl: "3600s"
+    x-google-jwt-locations:
+      - header:Authorization
+      - query:access_token
+    authorizationUrl: ""
+    flow: "implicit"
+    type: "oauth2"
+    x-google-issuer: "https://securetoken.google.com/${PROJECT_ID}"
+    x-google-jwks_uri: "https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+    x-google-audiences: "${PROJECT_ID}"
+    x-google-auth-ttl: "3600s"
+    scopes:
+      https://www.googleapis.com/auth/userinfo.email: "View user email"
+      https://www.googleapis.com/auth/userinfo.profile: "View user profile"
+      https://www.googleapis.com/auth/gmail.readonly: "View Gmail messages"
+      https://www.googleapis.com/auth/gmail.send: "Send Gmail messages"
+      https://www.googleapis.com/auth/calendar: "Manage calendar events"
+      https://www.googleapis.com/auth/spreadsheets: "Manage spreadsheets"
+x-google-management:
+  metrics:
+    - name: "requests"
+      displayName: "Requests"
+      valueType: INT64
+      metricKind: DELTA
+    - name: "auth-requests"
+      displayName: "Authentication Requests"
+      valueType: INT64
+      metricKind: DELTA
+    - name: "chat-requests"
+      displayName: "Chat API Requests"
+      valueType: INT64
+      metricKind: DELTA
+  quota:
+    limits:
+      - name: "requests-per-project"
+        metric: "requests"
+        unit: "1/min/{project}"
+        values:
+          STANDARD: 600
+      - name: "auth-requests-per-user"
+        metric: "auth-requests"
+        unit: "1/min/{user}"
+        values:
+          STANDARD: 60
+      - name: "chat-requests-per-user"
+        metric: "chat-requests"
+        unit: "1/min/{user}"
+        values:
+          STANDARD: 60
