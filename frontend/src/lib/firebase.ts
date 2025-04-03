@@ -1,10 +1,10 @@
 // Firebase configuration and initialization
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { mockAuth, MockGoogleAuthProvider } from './mockFirebase';
+import { mockAuth } from './mockFirebase';
 
 // Check if we're in development mode and should use mock implementations
-const useMocks = import.meta.env.MODE === 'development' || import.meta.env.VITE_USE_MOCKS === 'true';
+const useMocks = true; // Always use mocks for testing
 
 // Firebase configuration
 // These values should be replaced with actual values from your Firebase project
@@ -26,8 +26,5 @@ if (!useMocks) {
 
 // Initialize Firebase Authentication and get a reference to the service
 export const auth: Auth = useMocks ? mockAuth as unknown as Auth : getAuth(app);
-
-// Export Google Auth Provider for mock or real implementation
-export { MockGoogleAuthProvider as GoogleAuthProvider };
 
 export default app;

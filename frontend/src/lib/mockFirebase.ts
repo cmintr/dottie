@@ -37,6 +37,21 @@ const mockUser: User = {
 let currentUser: User | null = null;
 const authStateListeners: Array<(user: User | null) => void> = [];
 
+// Export direct mock sign-in and sign-out functions for easier testing
+export const mockSignIn = async (): Promise<void> => {
+  console.log("Mock signIn function called directly");
+  currentUser = mockUser;
+  authStateListeners.forEach(listener => listener(currentUser));
+  return Promise.resolve();
+};
+
+export const mockSignOut = async (): Promise<void> => {
+  console.log("Mock signOut function called directly");
+  currentUser = null;
+  authStateListeners.forEach(listener => listener(null));
+  return Promise.resolve();
+};
+
 // Mock auth functions
 export const mockAuth = {
   currentUser,
@@ -52,8 +67,15 @@ export const mockAuth = {
     };
   },
   signInWithPopup: async () => {
+    console.log("Mock signInWithPopup called");
+    // Set the current user
     currentUser = mockUser;
+    
+    // Notify all listeners of the auth state change
+    console.log("Notifying auth state listeners with user:", currentUser);
     authStateListeners.forEach(listener => listener(currentUser));
+    
+    // Return a mock credential
     return {
       user: mockUser,
       credential: {
@@ -65,20 +87,16 @@ export const mockAuth = {
     };
   },
   signOut: async () => {
+    console.log("Mock signOut called");
+    // Clear the current user
     currentUser = null;
+    
+    // Notify all listeners of the auth state change
+    console.log("Notifying auth state listeners with null user");
     authStateListeners.forEach(listener => listener(null));
+    
     return Promise.resolve();
   }
 };
-
-// Mock Google provider
-export class MockGoogleAuthProvider {
-  addScope() {
-    return this;
-  }
-  setCustomParameters() {
-    return this;
-  }
-}
 
 export default mockAuth;

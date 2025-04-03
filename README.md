@@ -49,15 +49,34 @@ For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.m
 
 ## Documentation
 
+For detailed information about the project, please refer to the following documentation:
+
 - [Architecture Overview](docs/ARCHITECTURE.md)
-- [Deployment Strategy](docs/DEPLOYMENT_STRATEGY.md)
-- [Testing Guide](docs/TESTING.md)
-- [Windows Development Guide](docs/WINDOWS_DEVELOPMENT.md)
-- [Security Documentation](docs/SECURITY.md)
-- [Technical Debt Register](docs/TECHNICAL_DEBT.md)
-- [Product Roadmap](docs/ROADMAP.md)
-- [Budget Planning](docs/BUDGET.md)
-- [Contributing Guidelines](CONTRIBUTING.md)
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
+- [Local Testing Guide](docs/LOCAL_TESTING_GUIDE.md)
+- [Testing Strategy](docs/TESTING_STRATEGY.md)
+- [Monitoring Setup](docs/MONITORING_SETUP.md)
+- [Frontend Testing](docs/FRONTEND_TESTING.md)
+- [Technical Debt](docs/TECHNICAL_DEBT.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Windows Development](docs/WINDOWS_DEVELOPMENT.md)
+
+## Recent Updates
+
+### Frontend Improvements (April 2025)
+
+- **Mock Services Implementation**: Added comprehensive mock implementations for Firebase authentication and Google Workspace services
+- **Enhanced UI Components**: Improved chat interface with better styling and user experience
+- **Function Call Visualization**: Added components to display email lists, calendar events, and spreadsheet data
+- **Authentication Flow**: Implemented complete sign-in and sign-out functionality with mock credentials
+- **Documentation**: Added detailed guides for local testing and deployment
+
+### Backend Improvements (March 2025)
+
+- **Firebase Authentication**: Integrated Firebase for secure user authentication
+- **Google OAuth Integration**: Implemented token refresh and persistence
+- **Core Google Services**: Added support for Gmail, Calendar, and Sheets
+- **Consistent Architecture**: Applied uniform patterns across all Google service integrations
 
 ## Getting Started
 
@@ -133,7 +152,7 @@ For Windows-specific development instructions, see [WINDOWS_DEVELOPMENT.md](docs
 
 ## Deployment
 
-For detailed deployment instructions, see [DEPLOYMENT_STRATEGY.md](docs/DEPLOYMENT_STRATEGY.md).
+For detailed deployment instructions, see [DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md).
 
 ### Backend (Cloud Run)
 
@@ -212,13 +231,14 @@ dottie/
 │
 ├── docs/                   # Documentation
 │   ├── ARCHITECTURE.md
-│   ├── DEPLOYMENT_STRATEGY.md
-│   ├── TESTING.md
-│   ├── WINDOWS_DEVELOPMENT.md
-│   ├── SECURITY.md
+│   ├── DEPLOYMENT_GUIDE.md
+│   ├── LOCAL_TESTING_GUIDE.md
+│   ├── TESTING_STRATEGY.md
+│   ├── MONITORING_SETUP.md
+│   ├── FRONTEND_TESTING.md
 │   ├── TECHNICAL_DEBT.md
 │   ├── ROADMAP.md
-│   └── BUDGET.md
+│   └── WINDOWS_DEVELOPMENT.md
 │
 ├── firestore.rules         # Firestore security rules
 ├── api-gateway.yaml        # API Gateway configuration

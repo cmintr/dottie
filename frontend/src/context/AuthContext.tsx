@@ -2,11 +2,9 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { auth } from '../lib/firebase';
 import { 
   User, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signOut as firebaseSignOut,
   onAuthStateChanged
 } from 'firebase/auth';
+import { mockSignIn, mockSignOut } from '../lib/mockFirebase';
 
 // Define the shape of the auth context
 interface AuthContextType {
@@ -42,10 +40,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Sign in with Google
   const signIn = async () => {
     try {
+      console.log("SignIn function called");
       setLoading(true);
       setError(null);
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      
+      // Use the mock sign-in function directly for testing
+      await mockSignIn();
+      console.log("Sign in successful with mock implementation");
     } catch (error) {
       console.error('Error signing in with Google:', error);
       setError('Failed to sign in with Google. Please try again.');
@@ -59,7 +60,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       setLoading(true);
       setError(null);
-      await firebaseSignOut(auth);
+      // Use the mock sign-out function directly for testing
+      await mockSignOut();
     } catch (error) {
       console.error('Error signing out:', error);
       setError('Failed to sign out. Please try again.');
@@ -70,7 +72,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Listen for auth state changes
   useEffect(() => {
+    console.log("Setting up auth state listener");
     const unsubscribe = onAuthStateChanged(auth, currentUser => {
+      console.log("Auth state changed", currentUser);
       setUser(currentUser);
       setLoading(false);
     }, error => {
