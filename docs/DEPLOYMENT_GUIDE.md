@@ -14,6 +14,36 @@ This guide provides detailed instructions for deploying the Dottie AI Assistant 
 8. [Rollback Procedures](#rollback-procedures)
 9. [FAQ and Troubleshooting](#faq-and-troubleshooting)
 
+## Deployment Architecture
+
+The Dottie AI Assistant uses a modern cloud-native architecture:
+
+```
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │      │                 │
+│  Firebase       │◄────►│  API Gateway    │◄────►│  Cloud Run      │
+│  Hosting        │      │                 │      │  (Backend)      │
+│  (Frontend)     │      │                 │      │                 │
+└─────────────────┘      └─────────────────┘      └─────────────────┘
+         │                        │                        │
+         ▼                        ▼                        ▼
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │      │                 │
+│  Firebase Auth  │      │  Firestore      │      │  Secret Manager │
+│                 │      │                 │      │                 │
+└─────────────────┘      └─────────────────┘      └─────────────────┘
+                                                          │
+                                                          ▼
+                                                  ┌─────────────────┐
+                                                  │                 │
+                                                  │  Google APIs    │
+                                                  │  (Workspace,    │
+                                                  │   Vertex AI)    │
+                                                  └─────────────────┘
+```
+
+For detailed step-by-step deployment instructions, refer to the [deployment directory](./deployment/README.md).
+
 ## Deployment Options
 
 Dottie AI Assistant supports multiple deployment options, each suitable for different testing and production scenarios:

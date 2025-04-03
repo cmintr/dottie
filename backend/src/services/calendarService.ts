@@ -52,20 +52,22 @@ export class CalendarService {
   /**
    * Get an authenticated Google Calendar API client
    * @param tokens OAuth tokens from the user's session
+   * @param userId User identifier for token storage
    * @param onTokensRefreshed Optional callback function to update tokens when refreshed
    * @returns Authenticated Calendar API client
    */
-  private getAuthenticatedCalendarClient(
+  private async getAuthenticatedCalendarClient(
     tokens: GoogleTokens, 
+    userId: string,
     onTokensRefreshed?: TokenUpdateCallback
-  ): calendar_v3.Calendar {
+  ): Promise<calendar_v3.Calendar> {
     if (!tokens || !tokens.access_token) {
       throw new Error('Authentication required for calendar access');
     }
 
     try {
       // Get an authenticated OAuth2 client with token refresh callback
-      const authClient = authService.createAuthenticatedClient(tokens, undefined, onTokensRefreshed as TokenUpdateCallback);
+      const authClient = await authService.createAuthenticatedClient(tokens, userId, onTokensRefreshed);
       
       // Create a Calendar API client with the authenticated OAuth2 client
       return google.calendar({ 
@@ -82,17 +84,19 @@ export class CalendarService {
    * Get calendar events based on provided parameters
    * @param tokens OAuth tokens from the user's session
    * @param params Parameters for fetching calendar events
+   * @param userId User identifier for token storage
    * @param onTokensRefreshed Optional callback function to update tokens when refreshed
    * @returns Array of calendar events
    */
   async getCalendarEvents(
     tokens: GoogleTokens, 
     params: CalendarEventParams,
+    userId: string,
     onTokensRefreshed?: TokenUpdateCallback
   ): Promise<CalendarEvent[]> {
     try {
       // Get an authenticated Calendar API client with token refresh callback
-      const calendar = this.getAuthenticatedCalendarClient(tokens, onTokensRefreshed);
+      const calendar = await this.getAuthenticatedCalendarClient(tokens, userId, onTokensRefreshed);
       
       console.log('Fetching calendar events with params:', params);
       
@@ -183,12 +187,14 @@ export class CalendarService {
   /**
    * Create a new calendar event
    * @param tokens OAuth tokens from the user's session
+   * @param userId User identifier for token storage
    * @param eventDetails Details of the event to create
    * @param onTokensRefreshed Optional callback function to update tokens when refreshed
    * @returns Created event
    */
   async createCalendarEvent(
     tokens: GoogleTokens,
+    userId: string,
     eventDetails: {
       summary: string;
       description?: string;
@@ -202,7 +208,7 @@ export class CalendarService {
   ): Promise<CalendarEvent> {
     try {
       // Get an authenticated Calendar API client with token refresh callback
-      const calendar = this.getAuthenticatedCalendarClient(tokens, onTokensRefreshed);
+      const calendar = await this.getAuthenticatedCalendarClient(tokens, userId, onTokensRefreshed);
       
       console.log('Creating calendar event:', eventDetails.summary);
       

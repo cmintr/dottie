@@ -190,10 +190,37 @@ export const chatController = {
       
       if (functionError) {
         functionResultString = `Error: ${functionError}`;
-      } else if (typeof functionResult === 'string') {
-        functionResultString = functionResult;
       } else {
-        functionResultString = JSON.stringify(functionResult, null, 2);
+        // Sanitize/summarize based on function type
+        switch (functionName) {
+          case 'get_recent_emails':
+            functionResultString = this.summarizeEmails(functionResult);
+            break;
+          
+          case 'get_calendar_events':
+            functionResultString = this.summarizeCalendarEvents(functionResult);
+            break;
+          
+          case 'get_sheet_data':
+            functionResultString = this.summarizeSheetData(functionResult);
+            break;
+          
+          case 'search_web':
+            functionResultString = this.summarizeWebResults(functionResult);
+            break;
+          
+          default:
+            // For other functions, use standard JSON stringify but limit size
+            if (typeof functionResult === 'string') {
+              functionResultString = functionResult.substring(0, 2000);
+              if (functionResult.length > 2000) {
+                functionResultString += ' [content truncated for brevity]';
+              }
+            } else {
+              const sanitizedResult = this.sanitizeObject(functionResult);
+              functionResultString = JSON.stringify(sanitizedResult, null, 2);
+            }
+        }
       }
       
       console.log(`Sending function result to LLM for ${functionName}:`, functionResultString.substring(0, 200) + (functionResultString.length > 200 ? '...' : ''));
@@ -207,6 +234,168 @@ export const chatController = {
         content: `I encountered an error while processing the function result: ${error.message || 'Unknown error'}`
       };
     }
+  },
+
+  /**
+   * Summarize email results to avoid sending sensitive data to the LLM
+   * @param emails Array of email objects
+   * @returns Summarized string representation
+   */
+  summarizeEmails(emails: any[]): string {
+    if (!Array.isArray(emails) || emails.length === 0) {
+      return 'No emails found.';
+    }
+    
+    const emailCount = emails.length;
+    const summary = `Found ${emailCount} email(s). Here's a summary:\n\n`;
+    
+    // Create a summarized version with just essential fields
+    const summarizedEmails = emails.map(email => ({
+      subject: email.subject,
+      from: email.from,
+      date: email.date,
+      snippet: email.snippet?.substring(0, 100) + (email.snippet?.length > 100 ? '...' : '')
+    }));
+    
+    return summary + JSON.stringify(summarizedEmails, null, 2);
+  },
+
+  /**
+   * Summarize calendar events to avoid sending sensitive data to the LLM
+   * @param events Array of calendar event objects
+   * @returns Summarized string representation
+   */
+  summarizeCalendarEvents(events: any[]): string {
+    if (!Array.isArray(events) || events.length === 0) {
+      return 'No calendar events found.';
+    }
+    
+    const eventCount = events.length;
+    const summary = `Found ${eventCount} calendar event(s). Here's a summary:\n\n`;
+    
+    // Create a summarized version with just essential fields
+    const summarizedEvents = events.map(event => ({
+      summary: event.summary,
+      start: event.start,
+      end: event.end,
+      location: event.location,
+      attendees: event.attendees ? `${event.attendees.length} attendee(s)` : 'No attendees'
+    }));
+    
+    return summary + JSON.stringify(summarizedEvents, null, 2);
+  },
+
+  /**
+   * Summarize sheet data to avoid sending sensitive data to the LLM
+   * @param data Sheet data (typically a 2D array)
+   * @returns Summarized string representation
+   */
+  summarizeSheetData(data: any): string {
+    if (!Array.isArray(data) || data.length === 0) {
+      return 'No sheet data found.';
+    }
+    
+    const rowCount = data.length;
+    const colCount = Array.isArray(data[0]) ? data[0].length : 0;
+    
+    let summary = `Found a spreadsheet with ${rowCount} row(s) and ${colCount} column(s).\n\n`;
+    
+    // If the sheet has headers (first row), include them
+    if (colCount > 0) {
+      summary += `Headers: ${JSON.stringify(data[0])}\n\n`;
+    }
+    
+    // For larger datasets, only include a sample
+    const maxRowsToInclude = Math.min(5, rowCount);
+    if (rowCount > maxRowsToInclude) {
+      summary += `Here are the first ${maxRowsToInclude} rows:\n\n`;
+      return summary + JSON.stringify(data.slice(0, maxRowsToInclude), null, 2);
+    } else {
+      return summary + JSON.stringify(data, null, 2);
+    }
+  },
+
+  /**
+   * Summarize web search results
+   * @param results Web search results
+   * @returns Summarized string representation
+   */
+  summarizeWebResults(results: any): string {
+    if (!results || !Array.isArray(results.items) || results.items.length === 0) {
+      return 'No search results found.';
+    }
+    
+    const resultCount = results.items.length;
+    const summary = `Found ${resultCount} search result(s). Here's a summary:\n\n`;
+    
+    // Create a summarized version with just essential fields
+    const summarizedResults = results.items.map((item: any) => ({
+      title: item.title,
+      link: item.link,
+      snippet: item.snippet?.substring(0, 150) + (item.snippet?.length > 150 ? '...' : '')
+    }));
+    
+    return summary + JSON.stringify(summarizedResults, null, 2);
+  },
+
+  /**
+   * Sanitize an object by removing potentially sensitive data
+   * and truncating long strings
+   * @param obj Object to sanitize
+   * @returns Sanitized object
+   */
+  sanitizeObject(obj: any): any {
+    if (!obj) return obj;
+    
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      // For large arrays, truncate and only include a sample
+      if (obj.length > 10) {
+        return [
+          ...obj.slice(0, 5).map(item => this.sanitizeObject(item)),
+          `... ${obj.length - 10} more items ...`,
+          ...obj.slice(-5).map(item => this.sanitizeObject(item))
+        ];
+      }
+      return obj.map(item => this.sanitizeObject(item));
+    }
+    
+    // Handle objects
+    if (typeof obj === 'object') {
+      const result: any = {};
+      
+      // Skip null objects
+      if (obj === null) return null;
+      
+      for (const key of Object.keys(obj)) {
+        // Skip sensitive key patterns
+        if (/password|token|secret|key|auth|credential/i.test(key)) {
+          result[key] = '[REDACTED]';
+          continue;
+        }
+        
+        // Handle different value types
+        if (typeof obj[key] === 'string') {
+          // Truncate long strings
+          if (obj[key].length > 200) {
+            result[key] = obj[key].substring(0, 200) + '...';
+          } else {
+            result[key] = obj[key];
+          }
+        } else if (Array.isArray(obj[key]) || typeof obj[key] === 'object') {
+          // Recursively sanitize nested objects and arrays
+          result[key] = this.sanitizeObject(obj[key]);
+        } else {
+          // Pass through other value types
+          result[key] = obj[key];
+        }
+      }
+      
+      return result;
+    }
+    
+    // Return primitive values as-is
+    return obj;
   },
 
   /**
@@ -247,27 +436,27 @@ export const chatController = {
         
       case 'get_calendar_events':
         if (!tokens) throw new Error('Authentication required');
-        return await calendarService.getCalendarEvents(tokens, functionArgs, onTokensRefreshed);
+        return await calendarService.getCalendarEvents(tokens, functionArgs, userId, onTokensRefreshed);
         
       case 'send_email':
         if (!tokens) throw new Error('Authentication required');
-        return await sendGmail(tokens, functionArgs, onTokensRefreshed);
+        return await sendGmail(tokens, functionArgs, userId, onTokensRefreshed);
         
       case 'get_recent_emails':
         if (!tokens) throw new Error('Authentication required');
-        return await getRecentEmails(tokens, functionArgs, onTokensRefreshed);
+        return await getRecentEmails(tokens, functionArgs, userId, onTokensRefreshed);
         
       case 'get_sheet_data':
         if (!tokens) throw new Error('Authentication required');
-        return await getSheetData(tokens, functionArgs, onTokensRefreshed);
+        return await getSheetData(tokens, functionArgs, userId, onTokensRefreshed);
         
       case 'update_sheet_data':
         if (!tokens) throw new Error('Authentication required');
-        return await updateSheetData(tokens, functionArgs, onTokensRefreshed);
+        return await updateSheetData(tokens, functionArgs, userId, onTokensRefreshed);
         
       case 'create_spreadsheet':
         if (!tokens) throw new Error('Authentication required');
-        return await createSpreadsheet(tokens, functionArgs, onTokensRefreshed);
+        return await createSpreadsheet(tokens, functionArgs, userId, onTokensRefreshed);
         
       case 'get_airtable_records':
         return await airtableService.getRecords(functionArgs.baseId, functionArgs.tableId);

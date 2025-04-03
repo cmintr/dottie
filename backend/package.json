@@ -11,6 +11,7 @@
     "lint": "eslint . --ext .ts"
   },
   "dependencies": {
+    "@google-cloud/connect-firestore": "^3.0.0",
     "@google-cloud/firestore": "^7.1.0",
     "@google-cloud/secret-manager": "^5.2.0",
     "@google-cloud/vertexai": "^0.4.0",

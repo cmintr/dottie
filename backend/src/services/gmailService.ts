@@ -37,20 +37,22 @@ interface EmailMessage {
  * 
  * @param tokens OAuth tokens from the user's session or Firestore
  * @param params Email parameters (to, subject, body, optional cc/bcc)
+ * @param userId User identifier for token storage
  * @param onTokensRefreshed Callback function to update tokens when refreshed
  * @returns Object containing success status and message ID or error
  */
 export async function sendGmail(
     tokens: GoogleTokens,
     params: SendEmailParams,
+    userId: string,
     onTokensRefreshed?: TokenUpdateCallback
 ): Promise<SendEmailResult> {
     try {
         // 1. Create authenticated client using the token refresh pattern
-        const authClient = await authService.createAuthenticatedClient(tokens, undefined, onTokensRefreshed || undefined);
+        const authClient = await authService.createAuthenticatedClient(tokens, userId, onTokensRefreshed);
         
         // 2. Initialize the Gmail API client
-        const gmail = google.gmail({ version: 'v1', auth: authClient as any });
+        const gmail = google.gmail({ version: 'v1', auth: authClient });
         
         // 3. Construct the raw email message (RFC 2822 format)
         // Create headers
@@ -88,7 +90,25 @@ export async function sendGmail(
             messageId: response.data.id
         };
     } catch (error: any) {
-        console.error('Error sending email:', error);
+        // Improved error handling with specific error types
+        if (error.code === 401 || error.code === 403) {
+            console.error('Authentication error when sending email:', {
+                userId,
+                errorCode: error.code,
+                errorMessage: error.message
+            });
+            return {
+                success: false,
+                error: 'Authentication error. Please try again or reconnect your Google account.'
+            };
+        }
+        
+        console.error('Error sending email:', {
+            userId,
+            error: error.message,
+            stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+        });
+        
         return {
             success: false,
             error: error.message || 'Unknown error occurred while sending email'
@@ -101,20 +121,22 @@ export async function sendGmail(
  * 
  * @param tokens OAuth tokens from the user's session or Firestore
  * @param params Query parameters (maxResults, query)
+ * @param userId User identifier for token storage
  * @param onTokensRefreshed Callback function to update tokens when refreshed
  * @returns Array of email messages
  */
 export async function getRecentEmails(
     tokens: GoogleTokens,
     params: GetRecentEmailsParams,
+    userId: string,
     onTokensRefreshed?: TokenUpdateCallback
 ): Promise<EmailMessage[]> {
     try {
         // 1. Create authenticated client using the token refresh pattern
-        const authClient = await authService.createAuthenticatedClient(tokens, undefined, onTokensRefreshed || undefined);
+        const authClient = await authService.createAuthenticatedClient(tokens, userId, onTokensRefreshed);
         
         // 2. Initialize the Gmail API client
-        const gmail = google.gmail({ version: 'v1', auth: authClient as any });
+        const gmail = google.gmail({ version: 'v1', auth: authClient });
         
         // 3. Set up parameters for the list request
         const maxResults = params.maxResults || 10; // Default to 10 emails
@@ -162,7 +184,22 @@ export async function getRecentEmails(
         
         return emailDetails;
     } catch (error: any) {
-        console.error('Error getting recent emails:', error);
+        // Improved error handling with specific error types
+        if (error.code === 401 || error.code === 403) {
+            console.error('Authentication error when getting recent emails:', {
+                userId,
+                errorCode: error.code,
+                errorMessage: error.message
+            });
+            throw new Error('Authentication error. Please try again or reconnect your Google account.');
+        }
+        
+        console.error('Error getting recent emails:', {
+            userId,
+            error: error.message,
+            stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
+        });
+        
         throw new Error(`Failed to retrieve emails: ${error.message}`);
     }
 }

@@ -53,13 +53,14 @@ For detailed information about the project, please refer to the following docume
 
 - [Architecture Overview](docs/ARCHITECTURE.md)
 - [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
-- [Local Testing Guide](docs/LOCAL_TESTING_GUIDE.md)
-- [Testing Strategy](docs/TESTING_STRATEGY.md)
+- [Comprehensive Testing Guide](docs/TESTING_GUIDE.md)
+- [Enhanced Testing Guide](docs/ENHANCED_TESTING_GUIDE.md)
 - [Monitoring Setup](docs/MONITORING_SETUP.md)
-- [Frontend Testing](docs/FRONTEND_TESTING.md)
 - [Technical Debt](docs/TECHNICAL_DEBT.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Windows Development](docs/WINDOWS_DEVELOPMENT.md)
+- [Security](docs/SECURITY.md)
+- [Budget](docs/BUDGET.md)
 
 ## Recent Updates
 

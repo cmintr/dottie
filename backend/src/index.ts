@@ -9,6 +9,7 @@ import authRoutes from './routes/authRoutes';
 import { firebaseService } from './services/firebaseService';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware';
 import { logger, requestLogger } from './utils/logger';
+import { FirestoreSessionStore } from './utils/firestoreSessionStore';
 
 // Load environment variables
 dotenv.config();
@@ -31,19 +32,37 @@ app.use(cors({
   credentials: true // Allow cookies to be sent with requests
 }));
 
-// Session middleware (using in-memory store for development)
-// Note: In production, we'll use Firestore for token storage, but we still need
-// session for temporary state storage during the OAuth flow and for backward compatibility
-app.use(session({
-  secret: process.env.SESSION_SECRET || uuidv4(), // Use environment variable or generate a random secret
-  resave: false, // Don't save session if unmodified
-  saveUninitialized: true, // Save uninitialized sessions
+// Validate required environment variables
+if (!process.env.SESSION_SECRET) {
+  logger.error('SESSION_SECRET environment variable is required');
+  process.exit(1);
+}
+
+// Session middleware with Firestore session store for production
+// This ensures sessions work correctly in multi-instance environments like Cloud Run
+const sessionOptions: session.SessionOptions = {
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false, // Don't save uninitialized sessions
   cookie: {
     secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
     httpOnly: true, // Prevent client-side JS from reading cookies
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
-}));
+};
+
+// Use Firestore session store in production, memory store in development
+if (process.env.NODE_ENV === 'production') {
+  logger.info('Using Firestore session store for production');
+  sessionOptions.store = new FirestoreSessionStore({
+    collection: 'express-sessions',
+    ttl: 86400 // 24 hours in seconds
+  });
+} else {
+  logger.info('Using in-memory session store for development');
+}
+
+app.use(session(sessionOptions));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

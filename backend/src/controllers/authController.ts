@@ -29,8 +29,13 @@ export const authController = {
         req.session.oauthUserId = req.user.uid;
       }
       
+      // Store the original URL if provided (for redirection after auth)
+      if (req.query.redirectUrl) {
+        req.session.redirectUrl = req.query.redirectUrl as string;
+      }
+      
       // Generate the Google OAuth URL with the state parameter
-      const authUrl = authService.generateGoogleAuthUrl(state);
+      const authUrl = await authService.generateGoogleAuthUrl(state);
       
       // Redirect the user to the Google OAuth consent screen
       res.redirect(authUrl);
@@ -49,9 +54,15 @@ export const authController = {
     try {
       const { code, state } = req.query;
       
+      // Get the expected state from the session
+      const expectedState = req.session.oauthState;
+      
       // Verify the state parameter to prevent CSRF attacks
-      if (!state || state !== req.session.oauthState) {
-        console.error('OAuth state mismatch. Possible CSRF attack.');
+      if (!state || !expectedState || state !== expectedState) {
+        console.error('OAuth state mismatch. Possible CSRF attack.', {
+          receivedState: state,
+          expectedState: expectedState ? 'present' : 'missing'
+        });
         res.status(400).json({ error: 'Invalid OAuth state. Please try again.' });
         return;
       }

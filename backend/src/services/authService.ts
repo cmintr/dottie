@@ -41,20 +41,33 @@ export class AuthService {
    * Create a new Google OAuth 2.0 client
    * @returns OAuth2Client instance
    */
-  getGoogleOAuth2Client(): OAuth2Client {
-    // For initial implementation, use environment variables directly
-    // In production, these would be retrieved from Secret Manager
-    const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
+  async getGoogleOAuth2Client(): Promise<OAuth2Client> {
+    try {
+      // Get client ID and redirect URI from environment variables
+      const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+      const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
+      
+      // Get client secret from Secret Manager
+      let clientSecret;
+      if (process.env.NODE_ENV === 'production') {
+        // In production, fetch from Secret Manager
+        clientSecret = await secretManagerService.getSecret('google-oauth-client-secret');
+      } else {
+        // In development, can use environment variable
+        clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+      }
 
-    if (!clientId || !clientSecret || !redirectUri) {
-      throw new Error('Missing required OAuth 2.0 configuration. Check environment variables.');
+      if (!clientId || !clientSecret || !redirectUri) {
+        throw new Error('Missing required OAuth 2.0 configuration. Check environment variables or Secret Manager.');
+      }
+
+      // Handle type compatibility issue with different versions of the OAuth2Client type
+      // by first casting to unknown and then to OAuth2Client
+      return new google.auth.OAuth2(clientId, clientSecret, redirectUri) as unknown as OAuth2Client;
+    } catch (error) {
+      console.error('Failed to initialize OAuth client:', error);
+      throw new Error('Authentication service configuration error');
     }
-
-    // Handle type compatibility issue with different versions of the OAuth2Client type
-    // by first casting to unknown and then to OAuth2Client
-    return new google.auth.OAuth2(clientId, clientSecret, redirectUri) as unknown as OAuth2Client;
   }
 
   /**
@@ -62,9 +75,9 @@ export class AuthService {
    * @param state CSRF protection state parameter
    * @returns Authorization URL
    */
-  generateGoogleAuthUrl(state: string): string {
+  async generateGoogleAuthUrl(state: string): Promise<string> {
     // Create OAuth 2.0 client
-    const oauth2Client = this.getGoogleOAuth2Client();
+    const oauth2Client = await this.getGoogleOAuth2Client();
     
     // Generate the authorization URL
     const url = oauth2Client.generateAuthUrl({
@@ -88,132 +101,114 @@ export class AuthService {
   async exchangeCodeForTokens(code: string, userId: string): Promise<GoogleTokens> {
     try {
       // Create OAuth 2.0 client
-      const oauth2Client = this.getGoogleOAuth2Client();
+      const oauth2Client = await this.getGoogleOAuth2Client();
       
       // Exchange the authorization code for tokens
       const { tokens } = await oauth2Client.getToken(code);
       
-      // Log the tokens (for development only - remove in production)
-      console.log('Received tokens from Google:');
-      console.log('Access Token:', tokens.access_token ? 'Present' : 'Missing');
-      console.log('Refresh Token:', tokens.refresh_token ? 'Present' : 'Missing');
-      console.log('Expiry Date:', tokens.expiry_date);
+      // Log success without exposing token details
+      console.log('Successfully exchanged authorization code for tokens', {
+        userId,
+        hasAccessToken: !!tokens.access_token,
+        hasRefreshToken: !!tokens.refresh_token,
+        expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : 'unknown'
+      });
       
-      // Convert to our GoogleTokens interface
+      // Verify we have the required tokens
+      if (!tokens.access_token) {
+        throw new Error('No access token received from Google OAuth');
+      }
+      
+      // Store the tokens in Firestore
       const googleTokens: GoogleTokens = {
-        access_token: tokens.access_token as string,
-        refresh_token: tokens.refresh_token as string | undefined,
-        scope: tokens.scope as string,
-        token_type: tokens.token_type as string,
-        expiry_date: tokens.expiry_date as number,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        scope: tokens.scope || '',
+        token_type: tokens.token_type || 'Bearer',
+        expiry_date: tokens.expiry_date || 0
       };
       
-      // Store tokens in Firestore
-      if (userId) {
-        try {
-          await this.storeTokensInFirestore(userId, googleTokens);
-          console.log(`Tokens stored in Firestore for user ${userId}`);
-        } catch (firestoreError) {
-          console.error('Error storing tokens in Firestore:', firestoreError);
-          // Continue even if Firestore storage fails
-          // The tokens will still be returned and stored in session
-        }
-      }
+      await firestoreService.storeUserTokens(userId, googleTokens);
       
       return googleTokens;
     } catch (error) {
-      console.error('Error exchanging code for tokens:', error);
-      throw new Error('Failed to exchange authorization code for tokens');
+      console.error('Failed to exchange authorization code for tokens:', error);
+      throw new Error('Failed to authenticate with Google');
     }
   }
 
   /**
-   * Create an authenticated OAuth 2.0 client using stored tokens
-   * This will be used by service methods that need to make authenticated API calls
-   * @param tokens Access and refresh tokens
-   * @param userId User identifier for persistent storage
-   * @param onTokensRefreshed Optional callback function to update tokens when refreshed
-   * @returns Authenticated OAuth2Client instance
+   * Create an authenticated Google API client with the provided tokens
+   * Handles token refresh automatically when needed
+   * @param tokens Google OAuth 2.0 tokens
+   * @param userId User identifier for storing refreshed tokens
+   * @param onTokensRefreshed Optional callback for token refresh notification
+   * @returns Authenticated OAuth2Client
    */
-  createAuthenticatedClient(
-    tokens: GoogleTokens, 
-    userId?: string,
+  async createAuthenticatedClient(
+    tokens: GoogleTokens,
+    userId: string,
     onTokensRefreshed?: TokenUpdateCallback
-  ): OAuth2Client {
-    if (!tokens || !tokens.access_token) {
-      throw new Error('Invalid tokens provided. Access token is required.');
-    }
-
+  ): Promise<OAuth2Client> {
     try {
-      // Create a new OAuth2 client
-      const oauth2Client = this.getGoogleOAuth2Client();
+      // Create OAuth 2.0 client
+      const oauth2Client = await this.getGoogleOAuth2Client();
       
-      // Set the credentials on the OAuth 2.0 client
-      // This includes the refresh_token which enables automatic token refresh
+      // Set the credentials from the stored tokens
       oauth2Client.setCredentials({
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
-        expiry_date: tokens.expiry_date,
-        token_type: tokens.token_type,
-        scope: tokens.scope
+        expiry_date: tokens.expiry_date
       });
       
-      // Add a listener for token refresh events
-      // Note: This event is triggered when the access token is automatically refreshed
-      oauth2Client.on('tokens', (newTokens) => {
-        console.log('Google tokens refreshed!', new Date().toISOString());
+      // Set up token refresh listener
+      oauth2Client.on('tokens', async (newTokens) => {
+        console.log('Tokens refreshed', { userId });
         
-        // Create an updated tokens object that preserves the original refresh token
-        // if a new one isn't provided (which is the common case)
-        const updatedTokens: Partial<GoogleTokens> = {
-          access_token: newTokens.access_token as string,
-          expiry_date: newTokens.expiry_date as number,
-          // Only update refresh_token if a new one was provided
-          refresh_token: newTokens.refresh_token ? (newTokens.refresh_token as string) : tokens.refresh_token,
-          // Only update these if provided
-          scope: newTokens.scope ? (newTokens.scope as string) : tokens.scope,
-          token_type: newTokens.token_type ? (newTokens.token_type as string) : tokens.token_type
-        };
+        // Update the tokens object with new values
+        if (newTokens.access_token) {
+          tokens.access_token = newTokens.access_token;
+        }
         
-        // If a new refresh token is provided (rare), log it
+        if (newTokens.expiry_date) {
+          tokens.expiry_date = newTokens.expiry_date;
+        }
+        
+        // Only update refresh_token if a new one was provided
         if (newTokens.refresh_token) {
-          console.log('Received a new refresh token. This will be stored securely.');
+          tokens.refresh_token = newTokens.refresh_token;
         }
         
-        // Log the new access token and expiry date
-        console.log('New access token received with expiry:', newTokens.expiry_date);
-        
-        // Update tokens in Firestore if userId is provided
-        if (userId) {
-          this.storeTokensInFirestore(userId, updatedTokens as GoogleTokens)
-            .then(() => {
-              console.log(`Updated tokens in Firestore for user ${userId}`);
-            })
-            .catch((error) => {
-              console.error(`Error updating tokens in Firestore for user ${userId}:`, error);
-            });
+        // Store updated tokens in Firestore
+        try {
+          await firestoreService.storeUserTokens(userId, tokens);
+          console.log('Updated tokens stored in Firestore', { userId });
+        } catch (storeError) {
+          console.error('Failed to store refreshed tokens:', storeError);
         }
         
-        // Call the callback function if provided to update the session/database
+        // Call the optional callback if provided
         if (onTokensRefreshed) {
-          console.log('Calling token update callback to persist refreshed tokens...');
-          onTokensRefreshed(updatedTokens);
-        } else {
-          console.warn('Token refresh occurred, but no callback provided to update session/storage.');
-          console.log('Need to update stored tokens (session/DB) with:', {
-            access_token: updatedTokens.access_token ? '(new token)' : '(unchanged)',
-            refresh_token: updatedTokens.refresh_token !== tokens.refresh_token ? '(new token)' : '(unchanged)',
-            expiry_date: updatedTokens.expiry_date
-          });
+          onTokensRefreshed(newTokens);
         }
       });
       
-      console.log('Created authenticated client with access token and refresh capability');
+      // Proactively refresh if token is close to expiry (within 5 minutes)
+      const now = Date.now();
+      if (tokens.expiry_date && tokens.expiry_date < now + 5 * 60 * 1000) {
+        try {
+          console.log('Proactively refreshing token near expiry', { userId });
+          await oauth2Client.refreshAccessToken();
+        } catch (refreshError) {
+          console.error('Failed to proactively refresh token:', refreshError);
+          // Continue with the existing token, it might still work
+        }
+      }
       
       return oauth2Client;
     } catch (error) {
-      console.error('Error creating authenticated client:', error);
-      throw new Error('Failed to create authenticated client');
+      console.error('Failed to create authenticated client:', error);
+      throw new Error('Failed to authenticate with Google APIs');
     }
   }
 
@@ -247,7 +242,7 @@ export class AuthService {
   ): Promise<any> {
     try {
       // Create authenticated client with token refresh callback
-      const oauth2Client = this.createAuthenticatedClient(tokens, userId, onTokensRefreshed);
+      const oauth2Client = await this.createAuthenticatedClient(tokens, userId, onTokensRefreshed);
       
       // Create Google People API client
       // Fix for TypeScript error: Use the correct overload for people API
@@ -298,7 +293,7 @@ export class AuthService {
   async revokeTokens(userId: string, tokens: GoogleTokens): Promise<boolean> {
     try {
       // Create OAuth 2.0 client
-      const oauth2Client = this.getGoogleOAuth2Client();
+      const oauth2Client = await this.getGoogleOAuth2Client();
       
       // Revoke access token
       if (tokens.access_token) {
