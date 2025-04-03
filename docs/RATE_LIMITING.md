@@ -51,6 +51,24 @@ cd backend
 npx ts-node src/tests/rateLimit.test.ts
 ```
 
+### Testing with Enhanced Testing Environment
+
+The rate limiting implementation can also be tested using our Enhanced Testing Environment:
+
+1. Start the enhanced testing environment using the provided script:
+   ```
+   ./start-enhanced-testing.bat
+   ```
+
+2. Send multiple rapid requests to the chat endpoint using the frontend interface
+   - After 10 requests within a minute, you should see a 429 error response
+   - The frontend will display an appropriate error message
+
+3. Test different user scenarios:
+   - Test as an unauthenticated user (50 requests per 15 minutes limit)
+   - Test as an authenticated user (100 requests per 15 minutes limit)
+   - Test the chat endpoint specifically (10 requests per minute limit)
+
 ### Manual Testing
 
 You can also test the rate limiting manually:

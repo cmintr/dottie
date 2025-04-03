@@ -141,6 +141,42 @@ Here are some recommended testing scenarios to validate different aspects of the
 3. **Complex Data Analysis**: "Create quarterly financial report"
 4. **Document Collaboration**: "Show shared documents status"
 
+### Email Workflow Testing
+
+1. **Important Email Detection**: "Show me important emails"
+   - Expected: The system identifies and displays emails marked as important
+   - Test with: "Show me important emails from last week"
+
+2. **Meeting Invitation Workflow**: "Show meeting invites"
+   - Expected: The system fetches and displays upcoming meeting invitations
+   - Test with: "Show me meeting invites for tomorrow"
+
+3. **Complex Data Analysis**: "Create quarterly financial report"
+   - Expected: The system processes spreadsheet data and generates a report
+   - Test with: "Compare Q1 and Q2 sales figures"
+
+4. **Document Collaboration**: "Show shared documents status"
+   - Expected: The system displays documents shared with collaborators
+   - Test with: "Show me documents shared with marketing team"
+
+### Security Feature Testing
+
+1. **Rate Limiting**: Test the API rate limiting functionality
+   - Send multiple rapid requests to the chat endpoint
+   - After 10 requests within a minute, you should see a 429 error response
+   - The frontend will display an appropriate error message
+   - Test different user scenarios (authenticated vs. unauthenticated)
+
+2. **Token Refresh**: Test the automatic token refresh functionality
+   - Use the mock implementation to simulate token expiration
+   - Verify that expired tokens are automatically refreshed
+   - Command: "Test token refresh"
+
+3. **Error Handling**: Test robust error handling
+   - Use the error simulation feature to trigger various error scenarios
+   - Verify that appropriate error messages are displayed
+   - Command: "Simulate authentication error"
+
 ### Error Handling Testing
 
 1. **Authentication Errors**: "Force auth error"
