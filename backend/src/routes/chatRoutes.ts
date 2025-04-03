@@ -1,13 +1,15 @@
 import express from 'express';
 import { chatController } from '../controllers/chatController';
+import { chatRateLimiter } from '../middleware/rateLimitMiddleware';
 
 const router = express.Router();
 
 /**
  * POST /api/chat
  * Handle chat requests from the frontend
+ * Apply stricter rate limiting for this resource-intensive endpoint
  */
-router.post('/', chatController.handleChatRequest);
+router.post('/', chatRateLimiter, chatController.handleChatRequest);
 
 /**
  * GET /api/chat/history

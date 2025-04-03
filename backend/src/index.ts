@@ -10,6 +10,8 @@ import { firebaseService } from './services/firebaseService';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware';
 import { logger, requestLogger } from './utils/logger';
 import { FirestoreSessionStore } from './utils/firestoreSessionStore';
+import { standardRateLimiter } from './middleware/rateLimitMiddleware';
+import { verifyFirebaseAuth } from './middleware/authMiddleware';
 
 // Load environment variables
 dotenv.config();
@@ -64,6 +66,12 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(session(sessionOptions));
 
+// Apply Firebase auth middleware to extract user from token if present
+app.use(verifyFirebaseAuth);
+
+// Apply standard rate limiter to all routes
+app.use(standardRateLimiter);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -83,6 +91,7 @@ app.use(errorHandler);
 app.listen(port, () => {
   logger.info(`Server running on port ${port}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info('Rate limiting enabled for all API endpoints');
 });
 
 export default app;
