@@ -1,9 +1,4 @@
-import { useState } from 'react';
-import ConversationHistory from '../components/ConversationHistory';
-import ChatInput from '../components/ChatInput';
-import AuthStatusCheck from '../components/AuthStatusCheck';
-import GoogleAccountLink from '../components/GoogleAccountLink';
-import VoiceOutput from '../components/VoiceOutput';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ChatService } from '../services/chatService';
 
@@ -25,167 +20,249 @@ function Conversation() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [autoSpeak, setAutoSpeak] = useState(false);
-  const [lastAssistantMessage, setLastAssistantMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * Send a message to the backend server
-   * @param message The message to send
-   * @returns Response from the server
-   */
-  async function sendMessageToServer(message: string): Promise<{ 
-    response: string;
-    conversationId: string;
-    functionCalls?: Array<{
-      name: string;
-      arguments: Record<string, any>;
-      result?: any;
-    }>;
-  }> {
-    console.log('Sending message to server:', message);
-    
-    if (!user) {
-      throw new Error('You must be signed in to send messages');
+  // Add initial welcome message
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([
+        {
+          id: 'welcome-message',
+          role: 'assistant',
+          content: "Hello! I'm Dottie, your AI assistant for Google Workspace. How can I help you today?",
+          timestamp: new Date(),
+        },
+      ]);
     }
-    
-    try {
-      // Use the ChatService to send the message to the backend
-      const response = await ChatService.sendMessage(message, conversationId);
-      return response;
-    } catch (error) {
-      console.error('Error sending message to server:', error);
-      throw error;
-    }
-  }
+  }, [messages.length]);
 
-  /**
-   * Handle form submission
-   * @param e Form submit event
-   */
+  // Scroll to bottom of messages when new messages are added
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim()) return;
     
-    // Create a new user message
+    // Add user message to state
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       role: 'user',
       content: inputValue,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
     
-    // Add user message to the conversation
-    setMessages(prev => [...prev, userMessage]);
-    
-    // Clear input field
+    setMessages((prevMessages) => [...prevMessages, userMessage]);
     setInputValue('');
-    
-    // Set loading state
     setIsLoading(true);
     setError(null);
     
     try {
       // Send message to server
-      const { response, conversationId: newConversationId, functionCalls } = await sendMessageToServer(userMessage.content);
+      const response = await ChatService.sendMessage(userMessage.content, conversationId);
       
       // Update conversation ID
-      setConversationId(newConversationId);
+      if (response.conversationId) {
+        setConversationId(response.conversationId);
+      }
       
-      // Create a new assistant message
+      // Add assistant message to state
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: response,
+        content: response.response,
         timestamp: new Date(),
-        functionCalls
+        functionCalls: response.functionCalls,
       };
       
-      // Add assistant message to the conversation
-      setMessages(prev => [...prev, assistantMessage]);
-      
-      // Update last assistant message for voice output
-      setLastAssistantMessage(response);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      
-      // Set error message
-      setError(error instanceof Error ? error.message : 'An error occurred while processing your request');
-      
-      // Add error message to the conversation
-      setMessages(prev => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: 'Sorry, there was an error processing your request. Please try again.',
-          timestamp: new Date()
-        }
-      ]);
+      setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError('Failed to send message. Please try again.');
     } finally {
-      // Reset loading state
       setIsLoading(false);
     }
   };
 
-  const toggleAutoSpeak = () => {
-    setAutoSpeak(!autoSpeak);
+  // Render function call results
+  const renderFunctionResults = (functionCalls: Message['functionCalls']) => {
+    if (!functionCalls || functionCalls.length === 0) return null;
+    
+    return functionCalls.map((call, index) => {
+      const { name, result } = call;
+      
+      // Render email results
+      if (name === 'getEmails' && result) {
+        return (
+          <div key={`function-${index}`} className="dottie-function-result">
+            <h4>Recent Emails</h4>
+            <ul className="dottie-email-list">
+              {result.map((email: any) => (
+                <li key={email.id} className="dottie-email-item">
+                  <div className="dottie-email-subject">{email.subject}</div>
+                  <div className="dottie-email-sender">From: {email.from}</div>
+                  <div className="dottie-email-snippet">{email.snippet}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
+      
+      // Render calendar results
+      if (name === 'getCalendarEvents' && result) {
+        return (
+          <div key={`function-${index}`} className="dottie-function-result">
+            <h4>Upcoming Events</h4>
+            <ul className="dottie-calendar-list">
+              {result.map((event: any) => {
+                const startDate = new Date(event.start.dateTime);
+                const endDate = new Date(event.end.dateTime);
+                const formattedDate = startDate.toLocaleDateString();
+                const formattedTime = `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                
+                return (
+                  <li key={event.id} className="dottie-calendar-item">
+                    <div className="dottie-calendar-title">{event.summary}</div>
+                    <div className="dottie-calendar-time">{formattedDate}, {formattedTime}</div>
+                    <div className="dottie-calendar-location">{event.location}</div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      }
+      
+      // Render spreadsheet results
+      if (name === 'createSpreadsheet' && result) {
+        return (
+          <div key={`function-${index}`} className="dottie-function-result">
+            <h4>{result.title}</h4>
+            {result.sheets && result.sheets[0] && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                <thead>
+                  <tr>
+                    {result.sheets[0].data[0].map((header: string, i: number) => (
+                      <th key={i} style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left', backgroundColor: '#f2f2f2' }}>
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.sheets[0].data.slice(1).map((row: any[], i: number) => (
+                    <tr key={i}>
+                      {row.map((cell, j) => (
+                        <td key={j} style={{ border: '1px solid #ddd', padding: '8px' }}>
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div style={{ marginTop: '10px' }}>
+              <a href="#" style={{ color: '#4285F4', textDecoration: 'none' }}>
+                Open Spreadsheet
+              </a>
+            </div>
+          </div>
+        );
+      }
+      
+      // Render email draft results
+      if (name === 'createDraft' && result) {
+        return (
+          <div key={`function-${index}`} className="dottie-function-result">
+            <h4>Email Draft</h4>
+            <div style={{ marginBottom: '10px' }}>
+              <strong>To:</strong> {call.arguments.to}
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <strong>Subject:</strong> {call.arguments.subject}
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <strong>Body:</strong>
+              <div style={{ whiteSpace: 'pre-line', border: '1px solid #ddd', padding: '10px', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
+                {call.arguments.body}
+              </div>
+            </div>
+            <div>
+              <button style={{ backgroundColor: '#34a853', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', marginRight: '8px', cursor: 'pointer' }}>
+                Send Email
+              </button>
+              <button style={{ backgroundColor: '#ea4335', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}>
+                Discard
+              </button>
+            </div>
+          </div>
+        );
+      }
+      
+      return null;
+    });
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-white shadow-sm p-4">
-        <h1 className="text-xl font-semibold text-gray-800">Dottie AI Assistant</h1>
-      </header>
-      
-      <main className="flex-1 overflow-hidden flex flex-col">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-          <AuthStatusCheck />
-          <GoogleAccountLink />
+    <div className="dottie-container">
+      {!user ? (
+        <div className="dottie-auth-section">
+          <h2>Authentication Required</h2>
+          <p>Please sign in to use Dottie AI Assistant.</p>
         </div>
-        
-        {error && (
-          <div className="mx-4 p-3 bg-red-100 text-red-700 rounded-md">
-            {error}
-          </div>
-        )}
-        
-        <div className="flex-1 overflow-y-auto p-4">
-          <ConversationHistory messages={messages} />
-        </div>
-        
-        <div className="p-4 bg-white border-t flex items-center space-x-4">
-          <div className="flex-1">
-            <ChatInput
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              setValue={setInputValue}
-              onSubmit={handleSubmit}
-              isLoading={isLoading}
-            />
+      ) : (
+        <>
+          <div className="dottie-chat-container">
+            <div className="dottie-chat-messages">
+              {messages.map((message) => (
+                <div key={message.id} className={`dottie-message dottie-message-${message.role}`}>
+                  <div>{message.content}</div>
+                  {message.functionCalls && renderFunctionResults(message.functionCalls)}
+                </div>
+              ))}
+              {isLoading && (
+                <div className="dottie-loading">
+                  <div className="dottie-loading-dots">
+                    <div className="dottie-loading-dot"></div>
+                    <div className="dottie-loading-dot"></div>
+                    <div className="dottie-loading-dot"></div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            
+            <form onSubmit={handleSubmit} className="dottie-chat-input">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Type your message here..."
+                disabled={isLoading}
+              />
+              <button type="submit" disabled={isLoading || !inputValue.trim()}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
+                </svg>
+              </button>
+            </form>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={toggleAutoSpeak}
-              className={`p-2 rounded-md ${autoSpeak ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}
-              title={autoSpeak ? 'Disable auto-speak' : 'Enable auto-speak'}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m2.828-9.9a9 9 0 012.728-2.728" />
-              </svg>
-            </button>
-            
-            <VoiceOutput 
-              text={lastAssistantMessage} 
-              autoPlay={autoSpeak}
-            />
-          </div>
-        </div>
-      </main>
+          {error && (
+            <div style={{ color: '#ea4335', marginTop: '10px', textAlign: 'center' }}>
+              {error}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -63,59 +63,73 @@ For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.m
 
 ### Prerequisites
 
-- Node.js (v20 or higher)
-- npm (v9 or higher)
-- Google Cloud SDK
-- Firebase CLI
-- Google Cloud project with required APIs enabled
-- Firebase project configured
+- Node.js (v18 or later)
+- npm (v9 or later)
+- Google Cloud account (for production deployment)
+- Firebase project (for authentication)
 
-### Setup
+### Local Development Setup
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/dottie.git
-   cd dottie
-   ```
+1. **Clone the repository**
 
-2. Install backend dependencies:
-   ```
-   cd backend
-   npm install
-   ```
+```bash
+git clone https://github.com/cmintr/dottie.git
+cd dottie
+```
 
-3. Install frontend dependencies:
-   ```
-   cd ../frontend
-   npm install
-   ```
+2. **Set up environment variables**
 
-4. Set up environment variables:
-   - Create `.env.development` in the frontend directory
-   - Create `.env` in the backend directory
-   - See `.env.example` files for required variables
+Create `.env` files for both frontend and backend using the provided examples:
 
-5. Set up Secret Manager (for deployment):
-   ```
-   cd ../scripts
-   ./setup-secret-manager.sh
-   ```
+```bash
+# For backend
+cp backend/.env.example backend/.env
 
-### Running Locally
+# For frontend
+cp frontend/.env.example frontend/.env
+```
 
-1. Start the backend:
-   ```
-   cd backend
-   npm run dev
-   ```
+3. **Install dependencies**
 
-2. Start the frontend:
-   ```
-   cd frontend
-   npm run dev
-   ```
+```bash
+# Install backend dependencies
+cd backend
+npm install
 
-3. Access the application at `http://localhost:3000`
+# Install frontend dependencies
+cd ../frontend
+npm install
+```
+
+4. **Start the development servers**
+
+```bash
+# Start backend server
+cd backend
+npm run dev
+
+# Start frontend server
+cd ../frontend
+npm run dev
+```
+
+5. **Testing with mock services**
+
+For testing without real API credentials, you can use the provided mock services:
+
+```bash
+# Run the frontend test script
+powershell -File ./dottie-test-temp/run-frontend-test.ps1
+```
+
+This will start the frontend with mock implementations for:
+- Firebase Authentication
+- Google Workspace APIs (Gmail, Calendar, Sheets)
+- Chat functionality
+
+The mock environment allows you to test the full application flow without real credentials.
+
+For Windows-specific development instructions, see [WINDOWS_DEVELOPMENT.md](docs/WINDOWS_DEVELOPMENT.md).
 
 ## Deployment
 

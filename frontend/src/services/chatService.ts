@@ -1,4 +1,8 @@
 import { ApiService } from './api';
+import { mockChatService } from './mockChatService';
+
+// Check if we're in development mode and should use mock implementations
+const useMocks = import.meta.env.MODE === 'development' || import.meta.env.VITE_USE_MOCKS === 'true';
 
 /**
  * Interface for chat message request
@@ -35,6 +39,12 @@ export class ChatService {
     message: string, 
     conversationId?: string
   ): Promise<ChatMessageResponse> {
+    // Use mock implementation in development mode
+    if (useMocks) {
+      console.log('Using mock chat service');
+      return mockChatService.sendMessage(message, conversationId);
+    }
+    
     try {
       const requestData: ChatMessageRequest = {
         query: message,

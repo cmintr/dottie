@@ -132,6 +132,20 @@ Throughout all phases of development, the following principles will guide our wo
    - Continuous integration and deployment
    - Data-driven feature prioritization
 
+## Q2 2025 (Current Quarter)
+
+### Frontend Development
+
+- [x] Implement Firebase Authentication UI flow
+- [x] Create mock implementations for local testing
+- [x] Build chat interface with message history
+- [x] Develop UI components for displaying function call results
+- [ ] Implement voice input/output features
+- [ ] Add comprehensive unit and integration tests
+- [ ] Optimize performance for mobile devices
+
+### Backend Enhancements
+
 ## Feedback and Adjustments
 
 This roadmap is a living document that will be updated based on:

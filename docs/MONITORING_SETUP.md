@@ -216,7 +216,6 @@ Write-Host "1. Set up notification channels in Cloud Monitoring console"
 Write-Host "2. Update the alert policies with your notification channel IDs"
 Write-Host "3. Customize the dashboard as needed"
 Write-Host "4. Consider setting up additional metrics for specific API endpoints"
-```
 
 ## Setting Up Notification Channels
 
@@ -243,6 +242,198 @@ Before running the script, you should set up notification channels in the Google
    - Go to **Monitoring** > **Dashboards** to see your new dashboard
    - Go to **Monitoring** > **Alerting** to see your alert policies
    - Go to **Monitoring** > **Uptime checks** to see your uptime check
+
+## Frontend Monitoring Setup
+
+In addition to backend monitoring, it's essential to monitor the frontend application to ensure a good user experience. This section covers setting up monitoring for the Dottie AI Assistant frontend.
+
+### Frontend Metrics to Monitor
+
+1. **Page Load Performance**
+   - First Contentful Paint (FCP)
+   - Largest Contentful Paint (LCP)
+   - First Input Delay (FID)
+   - Cumulative Layout Shift (CLS)
+
+2. **Error Tracking**
+   - JavaScript errors
+   - API call failures
+   - Authentication failures
+
+3. **User Experience**
+   - Chat message response time
+   - Voice input/output latency
+   - Function call rendering time
+
+### Setting Up Frontend Monitoring
+
+#### 1. Firebase Performance Monitoring
+
+Firebase Performance Monitoring provides insights into the performance characteristics of your web application. To set it up:
+
+```powershell
+# Install Firebase Performance Monitoring
+cd frontend
+npm install --save firebase/performance
+
+# Add the following to your src/lib/firebase.ts file
+import { getPerformance } from "firebase/performance";
+const perf = getPerformance(app);
+```
+
+#### 2. Error Logging
+
+Configure error logging to capture and report frontend errors:
+
+```powershell
+# Add error logging script to frontend/src/utils/errorLogging.ts
+$ErrorLoggingScript = @"
+export const logError = (error: Error, context?: Record<string, any>) => {
+  console.error('Error occurred:', error);
+  
+  // In production, send to Cloud Logging
+  if (process.env.NODE_ENV === 'production') {
+    fetch('/api/log-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: error.message,
+        stack: error.stack,
+        context,
+        timestamp: new Date().toISOString(),
+      }),
+    }).catch(console.error);
+  }
+};
+"@
+
+Set-Content -Path "frontend/src/utils/errorLogging.ts" -Value $ErrorLoggingScript
+```
+
+#### 3. Custom Event Tracking
+
+Set up custom event tracking to monitor user interactions:
+
+```powershell
+# Add custom event tracking to frontend/src/utils/analytics.ts
+$AnalyticsScript = @"
+import { getAnalytics, logEvent } from 'firebase/analytics';
+import { app } from '../lib/firebase';
+
+const analytics = getAnalytics(app);
+
+export const trackEvent = (eventName: string, eventParams?: Record<string, any>) => {
+  logEvent(analytics, eventName, eventParams);
+};
+
+export const trackChatInteraction = (messageType: 'user' | 'assistant', length: number) => {
+  trackEvent('chat_message', {
+    message_type: messageType,
+    message_length: length,
+    timestamp: new Date().toISOString(),
+  });
+};
+
+export const trackFunctionCall = (functionName: string, executionTime: number) => {
+  trackEvent('function_call', {
+    function_name: functionName,
+    execution_time: executionTime,
+    timestamp: new Date().toISOString(),
+  });
+};
+"@
+
+Set-Content -Path "frontend/src/utils/analytics.ts" -Value $AnalyticsScript
+```
+
+### Frontend Monitoring Dashboard
+
+Create a custom dashboard for frontend monitoring:
+
+```powershell
+# Create a custom dashboard for frontend monitoring
+gcloud monitoring dashboards create --config-from-file=frontend-dashboard.json
+```
+
+Example `frontend-dashboard.json`:
+
+```json
+{
+  "displayName": "Dottie Frontend Monitoring",
+  "gridLayout": {
+    "columns": "2",
+    "widgets": [
+      {
+        "title": "Page Load Performance",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"logging.googleapis.com/user/page_load_time\" resource.type=\"global\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_PERCENTILE_99"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "JavaScript Errors",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "metric.type=\"logging.googleapis.com/user/js_errors\" resource.type=\"global\"",
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "perSeriesAligner": "ALIGN_SUM"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+### Frontend Alert Policies
+
+Set up alert policies for critical frontend issues:
+
+```powershell
+# Create alert policy for high error rates
+gcloud alpha monitoring policies create `
+    --display-name="Dottie Frontend Error Rate Alert" `
+    --condition-filter="metric.type=`"logging.googleapis.com/user/js_errors`" AND resource.type=`"global`"" `
+    --condition-threshold-value=10 `
+    --condition-threshold-comparison=COMPARISON_GT `
+    --condition-threshold-duration=300s `
+    --notification-channels=$NOTIFICATION_CHANNEL `
+    --documentation="High rate of JavaScript errors detected in the frontend application. Check browser console logs and error reporting for details."
+```
+
+### Testing Frontend Monitoring
+
+To test that your frontend monitoring is working correctly:
+
+1. Generate test events:
+
+```javascript
+// In browser console
+window.trackEvent('test_event', { test_param: 'value' });
+```
+
+2. Verify in Firebase Console:
+   - Go to **Firebase Console** > **Performance** to see performance metrics
+   - Go to **Firebase Console** > **Analytics** to see custom events
 
 ## Custom Metrics
 
